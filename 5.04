@@ -1,0 +1,175 @@
+public class Product
+{
+    public string Name { get; set; }
+    public decimal Price { get; set; }
+
+    public Product(string name, decimal price)
+    {
+        Name = name;
+        Price = price;
+    }
+}
+
+public class ShoppingCart
+{
+    private List<Product> _products = new List<Product>();
+    private decimal _discount;
+
+    public void AddProduct(Product product)
+    {
+        _products.Add(product);
+    }
+
+    public void RemoveProduct(Product product)
+    {
+        _products.Remove(product);
+    }
+
+    public void AddDiscount(decimal discount)
+    {
+        _discount = discount;
+    }
+
+    public decimal CalculateTotal()
+    {
+        decimal total = _products.Sum(p => p.Price);
+        return total - (_discount > 0 ? total * (_discount / 100) : 0);
+    }
+
+    public List<Product> GetProducts()
+    {
+        return _products;
+    }
+}
+public interface IDiscountStrategy
+{
+    decimal ApplyDiscount(decimal total);
+}
+
+public class PercentageDiscount : IDiscountStrategy
+{
+    private readonly decimal _percentage;
+
+    public PercentageDiscount(decimal percentage)
+    {
+        _percentage = percentage;
+    }
+
+    public decimal ApplyDiscount(decimal total)
+    {
+        return total - (total * (_percentage / 100));
+    }
+}
+
+public class FixedAmountDiscount : IDiscountStrategy
+{
+    private readonly decimal _amount;
+
+    public FixedAmountDiscount(decimal amount)
+    {
+        _amount = amount;
+    }
+
+    public decimal ApplyDiscount(decimal total)
+    {
+        return total - _amount;
+    }
+}
+public interface ICommand
+{
+    void Execute();
+}
+
+public class AddProductCommand : ICommand
+{
+    private ShoppingCart _cart;
+    private Product _product;
+
+    public AddProductCommand(ShoppingCart cart, Product product)
+    {
+        _cart = cart;
+        _product = product;
+    }
+
+    public void Execute()
+    {
+        _cart.AddProduct(_product);
+        Console.WriteLine($"{_product.Name} добавлен в корзину.");
+    }
+}
+
+public class CheckoutCommand : ICommand
+{
+    private ShoppingCart _cart;
+
+    public CheckoutCommand(ShoppingCart cart)
+    {
+        _cart = cart;
+    }
+
+    public void Execute()
+    {
+        var total = _cart.CalculateTotal();
+        Console.WriteLine("Чек:");
+        foreach (var product in _cart.GetProducts())
+        {
+            Console.WriteLine($"{product.Name} - {product.Price:C}");
+        }
+        Console.WriteLine($"Итого: {total:C}");
+    }
+}
+public class SelfCheckoutKiosk
+{
+    private ShoppingCart _cart = new ShoppingCart();
+
+    public void AddProductToCart(Product product)
+    {
+        var command = new AddProductCommand(_cart, product);
+        command.Execute();
+    }
+
+    public void Checkout()
+    {
+        var command = new CheckoutCommand(_cart);
+        command.Execute();
+    }
+
+    public void AddDiscount(IDiscountStrategy discountStrategy)
+    {
+        var total = _cart.CalculateTotal();
+        total = discountStrategy.ApplyDiscount(total);
+        Console.WriteLine($"С применением скидки итоговая сумма: {total:C}");
+    }
+
+    public void ShowCurrentCart()
+    {
+        Console.WriteLine("Текущая корзина:");
+        foreach (var product in _cart.GetProducts())
+        {
+            Console.WriteLine($"{product.Name} - {product.Price:C}");
+        }
+    }
+}
+class Program
+{
+    static void Main(string[] args)
+    {
+        var kiosk = new SelfCheckoutKiosk();
+
+        // Добавление товаров
+        kiosk.AddProductToCart(new Product("Шампунь", 250));
+        kiosk.AddProductToCart(new Product("Кондиционер", 300));
+        
+        // Отображение текущей корзины
+        kiosk.ShowCurrentCart();
+
+        // Применение скидки
+        var discountStrategy = new PercentageDiscount(10); // 10% скидка
+        kiosk.AddDiscount(discountStrategy);
+
+        // Чек покупки
+        kiosk.Checkout();
+        
+        Console.ReadLine();
+    }
+}
